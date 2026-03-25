@@ -1,84 +1,85 @@
-# MolTrust SDK
+# @moltrust/sdk
 
-**Trust Layer for the Agent Economy.**
-
-MolTrust provides identity verification, reputation scoring, and W3C Verifiable Credentials for AI agents.
+MolTrust Agent Verification Middleware for Express, Hono, and Fastify.
 
 ## Install
+
 ```bash
-pip install moltrust
+npm install @moltrust/sdk
 ```
 
-## Quickstart
-```python
-from moltrust import MolTrust
+## Usage
 
-mt = MolTrust(api_key="mt_your_key")
+### Express
+```typescript
+import express from 'express';
+import { AgentTrust } from '@moltrust/sdk';
 
-# Register an agent
-agent = mt.register("MyAgent")
-print(agent.did)  # did:moltrust:a1b2c3d4...
+const app = express();
 
-# Issue a Verifiable Credential
-vc = mt.issue_credential(agent.did)
-print(vc.is_signed)  # True
+// Verify agent trust score (min 60)
+app.use(AgentTrust.verify({ minScore: 60 }));
 
-# Verify the credential
-result = mt.verify_credential(vc)
-print(result.valid)  # True
+// Access verification result in route
+app.get('/api/resource', (req, res) => {
+  const { did, trustScore, grade } = req.agentVerification!;
+  res.json({ message: `Hello agent ${did}, score: ${trustScore} (${grade})` });
+});
 ```
 
-## Features
+### Hono
+```typescript
+import { Hono } from 'hono';
+import { AgentTrust } from '@moltrust/sdk';
 
-- **Identity** — Register, verify, and resolve agent DIDs
-- **Reputation** — Rate agents and query trust scores
-- **Verifiable Credentials** — Issue and verify W3C VCs with Ed25519 signatures
-- **Async Support** — Full async client via `AsyncMolTrust`
-
-## Integration Examples
-
-### LangChain Tool
-```python
-from langchain.tools import tool
-from moltrust import MolTrust
-
-mt = MolTrust(api_key="mt_...")
-
-@tool
-def verify_agent(did: str) -> str:
-    """Verify if an AI agent is trusted via MolTrust."""
-    if mt.verify(did):
-        rep = mt.get_reputation(did)
-        return f"Verified. Trust score: {rep.score}/5 ({rep.total_ratings} ratings)"
-    return "Agent not found."
+const app = new Hono();
+app.use('*', AgentTrust.honoVerify({ minScore: 60 }));
 ```
 
-### Pre-Transaction Check
-```python
-mt = MolTrust(api_key="mt_...")
-
-def safe_transact(counterparty_did: str):
-    rep = mt.get_reputation(counterparty_did)
-    if not rep.is_trusted:
-        raise Exception(f"Not trusted (score: {rep.score})")
-    vc = mt.issue_credential(counterparty_did, "TransactionCredential")
-    return vc
+### With AAE evaluation
+```typescript
+app.use('/api/purchase', AgentTrust.verify({
+  minScore: 60,
+  requireAAE: true,
+  evaluateAction: 'https://api.example.com/purchase',
+  evaluateAmount: 150,
+  evaluateJurisdiction: 'CH',
+}));
 ```
 
-## Standards
+### Request headers
+Agents must send:
+```
+X-Agent-DID: did:moltrust:agent042
+X-Agent-Credential: <credentialId>  (optional, for AAE evaluation)
+```
 
-- **W3C DID:web** — Decentralized Identifiers
-- **W3C Verifiable Credentials** — Tamper-proof credentials
-- **Ed25519** — Elliptic curve signatures
-- **Lightning Network** — Bitcoin L2 payments
+## Options
 
-## Links
+| Option | Type | Default | Description |
+|---|---|---|---|
+| minScore | number | 0 | Minimum trust score (0-100) |
+| requireAAE | boolean | false | Require Agent Authorization Envelope |
+| evaluateAction | string | -- | URI of action to evaluate against AAE |
+| evaluateAmount | number | -- | Transaction amount for threshold checks |
+| evaluateJurisdiction | string | -- | ISO 3166-1 alpha-2 country code |
+| apiBase | string | https://api.moltrust.ch | MolTrust API base URL |
 
-- **API Docs:** https://api.moltrust.ch/docs
-- **DID Document:** https://api.moltrust.ch/.well-known/did.json
-- **Website:** https://moltrust.ch
-- **X:** [@moltrust](https://x.com/moltrust)
+## req.agentVerification
 
-## License
-
-MIT — CryptoKRI GmbH, Zurich, Switzerland
+```typescript
+{
+  did: string;
+  trustScore: number;
+  grade: string;           // S, A, B, C, D, F
+  aae?: AAE;               // Agent Authorization Envelope
+  aaeEvaluation?: {
+    allowed: boolean;
+    reason: string;
+    requiresStepUp?: boolean;
+    requiresHumanApproval?: boolean;
+  };
+  credentialId?: string;
+  verified: boolean;
+}
+```
