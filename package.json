@@ -1,7 +1,7 @@
 {
   "name": "@moltrust/sdk",
-  "version": "1.0.0",
-  "description": "MolTrust Agent Verification Middleware — Express, Hono, Fastify",
+  "version": "1.1.0",
+  "description": "MolTrust Agent Verification — verify AI agents in 3 lines of code",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [

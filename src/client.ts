@@ -7,6 +7,8 @@ export interface TrustScoreResponse {
   trust_score: number;
   grade: string;
   withheld: boolean;
+  flags?: string[];
+  flag_count?: number;
 }
 
 export interface CredentialResponse {

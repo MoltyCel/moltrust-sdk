@@ -7,6 +7,7 @@ import { extractFromHeaders } from './extract';
 export function verify(options: VerifyOptions = {}) {
   const {
     minScore = 0,
+    blockFlags = [],
     requireAAE = false,
     evaluateAction,
     evaluateAmount,
@@ -31,6 +32,8 @@ export function verify(options: VerifyOptions = {}) {
       // 2. Fetch trust score
       const scoreData = await fetchTrustScore(did, apiBase);
 
+      const flags = scoreData.flags ?? [];
+
       // 3. Check minimum score
       if (minScore > 0 && scoreData.trust_score < minScore) {
         res.status(403).json({
@@ -40,6 +43,19 @@ export function verify(options: VerifyOptions = {}) {
           required: minScore
         });
         return;
+      }
+
+      // 3b. Check blocked flags
+      if (blockFlags.length > 0) {
+        const blocked = flags.filter((f: string) => blockFlags.includes(f));
+        if (blocked.length > 0) {
+          res.status(403).json({
+            error: 'agent_blocked_flags',
+            did,
+            flags: blocked,
+          });
+          return;
+        }
       }
 
       // 4. Fetch AAE if credential provided
@@ -82,6 +98,7 @@ export function verify(options: VerifyOptions = {}) {
         did,
         trustScore: scoreData.trust_score,
         grade: scoreData.grade,
+        flags,
         aae,
         aaeEvaluation,
         credentialId: credentialId ?? undefined,

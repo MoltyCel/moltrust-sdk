@@ -7,6 +7,7 @@ import { extractFromHeaders } from './extract';
 export function honoVerify(options: VerifyOptions = {}) {
   const {
     minScore = 0,
+    blockFlags = [],
     requireAAE = false,
     evaluateAction,
     evaluateAmount,
@@ -22,6 +23,7 @@ export function honoVerify(options: VerifyOptions = {}) {
 
     try {
       const scoreData = await fetchTrustScore(did, apiBase);
+      const flags = scoreData.flags ?? [];
 
       if (minScore > 0 && scoreData.trust_score < minScore) {
         return c.json({
@@ -29,6 +31,14 @@ export function honoVerify(options: VerifyOptions = {}) {
           trust_score: scoreData.trust_score,
           required: minScore
         }, 403);
+      }
+
+      // Check blocked flags
+      if (blockFlags.length > 0) {
+        const blocked = flags.filter((f: string) => blockFlags.includes(f));
+        if (blocked.length > 0) {
+          return c.json({ error: 'agent_blocked_flags', did, flags: blocked }, 403);
+        }
       }
 
       let aae = credentialId ? await fetchCredentialAAE(credentialId, apiBase) : undefined;
@@ -52,6 +62,7 @@ export function honoVerify(options: VerifyOptions = {}) {
         did,
         trustScore: scoreData.trust_score,
         grade: scoreData.grade,
+        flags,
         aae,
         credentialId,
         verified: true,
