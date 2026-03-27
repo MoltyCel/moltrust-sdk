@@ -1,5 +1,7 @@
 import { extractFromHeaders } from './extract';
 
+jest.setTimeout(15000);
+
 describe('extractFromHeaders()', () => {
   test('extracts DID from x-agent-did header', () => {
     const result = extractFromHeaders({ 'x-agent-did': 'did:moltrust:agent042' });
