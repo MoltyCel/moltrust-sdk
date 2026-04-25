@@ -6,7 +6,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from moltrust import MolTrust
 from moltrust.client import MolTrustError
 
-API_KEY = os.getenv("MOLTRUST_API_KEY", "***REMOVED***")
+API_KEY = os.getenv("MOLTRUST_API_KEY", "")
 BASE_URL = os.getenv("MOLTRUST_API_URL", "https://api.moltrust.ch")
 
 def test_full_flow():
