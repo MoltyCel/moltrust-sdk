@@ -1,42 +1,106 @@
-# @moltrust/sdk
+# moltrust
 
-Verify AI agent trust scores in 3 lines of code.
+[![PyPI](https://img.shields.io/pypi/v/moltrust.svg)](https://pypi.org/project/moltrust/)
+[![Python](https://img.shields.io/pypi/pyversions/moltrust.svg)](https://pypi.org/project/moltrust/)
+[![License](https://img.shields.io/pypi/l/moltrust.svg)](LICENSE)
+
+DID resolver and trust layer for the agent economy. Python + TypeScript SDKs for `did:moltrust:*` and `did:web:*` resolution against [api.moltrust.ch](https://api.moltrust.ch).
+
+## What is MolTrust?
+
+MolTrust resolves W3C Decentralized Identifiers (DIDs) for autonomous agents and exposes trust scores, verifiable credentials, and reputation signals through a single API. It is operated by [CryptoKRI GmbH, Zürich](https://moltrust.ch).
+
+This package ships two SDKs:
+- **Python** (`pip install moltrust`) — primary, includes the DID resolver
+- **TypeScript** (`npm install @moltrust/sdk`) — standalone trust verification
+
+---
+
+## Quick Start (Python)
+
+```bash
+pip install moltrust
+```
+
+Resolve a DID:
+
+```python
+from moltrust import MolTrustResolver
+
+with MolTrustResolver() as resolver:
+    doc = resolver.resolve("did:moltrust:d34ed796a4dc4698")
+    print(doc.id)
+    # did:moltrust:d34ed796a4dc4698
+```
+
+Async variant:
+
+```python
+from moltrust import AsyncMolTrustResolver
+
+async with AsyncMolTrustResolver() as resolver:
+    doc = await resolver.resolve("did:web:api.moltrust.ch")
+    print(doc.id)
+```
+
+Use as a drop-in resolver for any DID-aware harness that accepts the W3C resolution Protocol:
+
+```python
+from moltrust import MolTrustResolver
+
+# Constructor injection: any harness that accepts a `resolve(did) -> DIDDocument`
+# Protocol can use MolTrustResolver as-is.
+harness = SomeHarness(resolver=MolTrustResolver())
+```
+
+### Supported DID Methods
+
+| Method                | Status | Notes |
+|-----------------------|--------|-------|
+| `did:moltrust:*`      | ✅ Native | Including bridge-resolved `did:moltrust:ext_*` |
+| `did:web:*`           | ✅ Native | Resolved via the MolTrust API or directly per W3C spec |
+| `did:agentnexus:*`    | 🔜 Roadmap | Bridge-resolution path planned |
+| `did:meeet:*`         | 🔜 Roadmap | Bridge-resolution path planned |
+| `did:key:*`           | ❌ Out of scope | Use a `did:key` resolver such as `didkit-py` |
+| Other                 | `methodNotSupported` | Caller can fall back to a different resolver |
+
+### Errors
+
+`MolTrustResolver.resolve()` raises `ResolutionError` with a `reason` attribute matching the W3C error codes:
+
+| Reason              | When |
+|---------------------|------|
+| `methodNotSupported`| DID method not handled by this resolver |
+| `notFound`          | DID syntactically valid, no document found |
+| `invalidDid`        | Malformed DID input |
+| `didNotResolved`    | Network error, malformed response, etc. |
+
+### Other Python APIs
+
+```python
+from moltrust import MolTrust, AsyncMolTrust
+
+with MolTrust(api_key="mt_...") as mt:
+    agent = mt.register("My Agent")
+    rep = mt.get_reputation(agent.did)
+    cred = mt.issue_credential(agent.did)
+```
+
+See `moltrust.client.MolTrust` for the full client API.
+
+---
+
+## Quick Start (TypeScript)
+
+```bash
+npm install @moltrust/sdk
+```
 
 ```typescript
 import { AgentTrust } from '@moltrust/sdk';
 
 const result = await AgentTrust.verify('did:moltrust:abc123');
 if (!result.verified) throw new Error(result.reason);
-```
-
-## Install
-
-```bash
-npm install @moltrust/sdk
-```
-
-## Standalone Verification
-
-```typescript
-import { AgentTrust } from '@moltrust/sdk';
-
-// Simple check
-const result = await AgentTrust.verify('did:moltrust:abc123');
-console.log(result.verified);    // true/false
-console.log(result.trustScore);  // 0-100
-console.log(result.grade);       // "A" | "B" | "C" | "D" | "F"
-console.log(result.flags);       // [] or ['low_confidence', ...]
-
-// With minimum score
-const result = await AgentTrust.verify('did:moltrust:abc123', {
-  minScore: 70,
-});
-
-// Block specific flags
-const result = await AgentTrust.verify('did:moltrust:abc123', {
-  minScore: 50,
-  blockFlags: ['young_endorser_cluster', 'score_drop_anomaly'],
-});
 ```
 
 ### VerificationResult
@@ -53,7 +117,7 @@ const result = await AgentTrust.verify('did:moltrust:abc123', {
 }
 ```
 
-## Express Middleware
+### Express Middleware
 
 ```typescript
 import express from 'express';
@@ -61,59 +125,27 @@ import { AgentTrust } from '@moltrust/sdk';
 
 const app = express();
 
-// Reads DID from X-Agent-DID header, returns 403 if score < 70
 app.use('/api/action', AgentTrust.middleware({ minScore: 70 }));
 
-// Block specific anomaly flags
-app.use('/api/payment', AgentTrust.middleware({
-  minScore: 60,
-  blockFlags: ['young_endorser_cluster'],
-}));
-
-// Access verification result in handler
 app.post('/api/action', (req, res) => {
   const trust = req.agentVerification;
-  console.log(trust?.did, trust?.trustScore, trust?.flags);
-  res.json({ ok: true });
+  res.json({ ok: true, trust });
 });
 ```
 
-## Hono Middleware
+### Hono Middleware
 
 ```typescript
 import { Hono } from 'hono';
-import { AgentTrust } from '@moltrust/sdk';
+import { agentTrust } from '@moltrust/sdk/hono';
 
 const app = new Hono();
-app.use('/api/action', AgentTrust.honoMiddleware({ minScore: 70 }));
+app.use('/secure/*', agentTrust({ minScore: 60 }));
 ```
 
-## AAE Evaluation
+### Trust Flags
 
-The middleware can evaluate Agent Authorization Envelopes:
-
-```typescript
-app.use('/api/purchase', AgentTrust.middleware({
-  minScore: 50,
-  requireAAE: true,
-  evaluateAction: 'commerce/purchase',
-  evaluateAmount: 500,
-}));
-```
-
-## Register an Agent
-
-```typescript
-const agent = await AgentTrust.register({
-  displayName: 'My Trading Agent',
-  apiKey: process.env.MOLTRUST_API_KEY!,
-});
-// { did: 'did:moltrust:...', ... }
-```
-
-## Trust Flags
-
-Flags signal behavioral anomalies. They are informational for verifiers — no score deduction:
+Informational anomaly signals — no score deduction:
 
 | Flag | Trigger |
 |---|---|
@@ -122,7 +154,7 @@ Flags signal behavioral anomalies. They are informational for verifiers — no s
 | `young_endorser_cluster` | Endorsed by >5 agents under 7 days old |
 | `score_drop_anomaly` | Score dropped >20 points in 24h |
 
-## Headers Convention
+### Headers Convention
 
 | Header | Purpose |
 |---|---|
@@ -130,4 +162,15 @@ Flags signal behavioral anomalies. They are informational for verifiers — no s
 | `X-Agent-Credential` | Credential ID for AAE lookup |
 | `Authorization: Bearer did:...` | Fallback DID extraction |
 
-Full docs: https://moltrust.ch/developers
+---
+
+## Used By
+
+- [aeoess/a2a-compliance-harness](https://github.com/aeoess/a2a-compliance-harness) — A2A protocol compliance probing (drop-in via constructor injection)
+
+## License
+
+MIT — see [LICENSE](LICENSE).
+
+Full developer docs: https://moltrust.ch/developers
+Open issues: https://github.com/MoltyCel/moltrust-sdk/issues

@@ -1,2 +1,8 @@
 node_modules/
 dist/
+
+# Phase 3 build artifacts
+.venv/
+build/
+dist/
+*.egg-info/

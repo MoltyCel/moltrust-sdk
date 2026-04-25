@@ -1,10 +1,11 @@
 """MolTrust MCP Server - Trust Layer tools for AI assistants"""
 
+import os
 from mcp.server.fastmcp import FastMCP
 import httpx
 
-API_URL = "https://api.moltrust.ch"
-API_KEY = "***REMOVED***"
+API_URL = os.getenv("MOLTRUST_API_URL", "https://api.moltrust.ch")
+API_KEY = os.getenv("MOLTRUST_API_KEY", "")
 
 mcp = FastMCP("MolTrust", instructions="Trust Layer for the Agent Economy. Verify agent identities, check reputation, issue and verify W3C Verifiable Credentials.")
 
