@@ -2,6 +2,7 @@
 
 import httpx
 from typing import Optional, Dict, Any, Union
+from urllib.parse import quote
 from moltrust.models import Agent, Credential, Reputation, VerificationResult
 
 
@@ -40,14 +41,14 @@ class MolTrust:
         return Agent(did=data["did"], display_name=data["display_name"], status=data.get("status", "registered"))
 
     def verify(self, did: str) -> bool:
-        data = self._handle_response(self._client.get(f"/identity/verify/{did}"))
+        data = self._handle_response(self._client.get(f"/identity/verify/{quote(did, safe='')}"))
         return data.get("verified", False)
 
     def resolve(self, did: str) -> Dict[str, Any]:
-        return self._handle_response(self._client.get(f"/identity/resolve/{did}"))
+        return self._handle_response(self._client.get(f"/identity/resolve/{quote(did, safe='')}"))
 
     def get_reputation(self, did: str) -> Reputation:
-        data = self._handle_response(self._client.get(f"/reputation/query/{did}"))
+        data = self._handle_response(self._client.get(f"/reputation/query/{quote(did, safe='')}"))
         return Reputation(did=data["did"], score=data["score"], total_ratings=data["total_ratings"])
 
     def rate(self, from_did: str, to_did: str, score: int) -> Dict[str, Any]:
@@ -105,13 +106,13 @@ class AsyncMolTrust:
         return Agent(did=data["did"], display_name=data["display_name"], status=data.get("status", "registered"))
 
     async def verify(self, did: str) -> bool:
-        return self._handle_response(await self._client.get(f"/identity/verify/{did}")).get("verified", False)
+        return self._handle_response(await self._client.get(f"/identity/verify/{quote(did, safe='')}")).get("verified", False)
 
     async def resolve(self, did: str) -> Dict[str, Any]:
-        return self._handle_response(await self._client.get(f"/identity/resolve/{did}"))
+        return self._handle_response(await self._client.get(f"/identity/resolve/{quote(did, safe='')}"))
 
     async def get_reputation(self, did: str) -> Reputation:
-        data = self._handle_response(await self._client.get(f"/reputation/query/{did}"))
+        data = self._handle_response(await self._client.get(f"/reputation/query/{quote(did, safe='')}"))
         return Reputation(did=data["did"], score=data["score"], total_ratings=data["total_ratings"])
 
     async def rate(self, from_did: str, to_did: str, score: int) -> Dict[str, Any]:
